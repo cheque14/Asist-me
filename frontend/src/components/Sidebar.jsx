@@ -42,6 +42,16 @@ export default function Sidebar({ vistaActual, setVistaActual, usuario }) {
             Calendario y Citas
           </button>
 
+          {esMedico && (
+            <button
+              style={vistaActual === 'horarios' ? styles.btnActivo : styles.btnNav}
+              onClick={() => setVistaActual('horarios')}
+            >
+              <span style={styles.iconoMenu}>🕒</span>
+              Mi horario
+            </button>
+          )}
+
           <button 
             style={vistaActual === 'servicios' ? styles.btnActivo : styles.btnNav} 
             onClick={() => setVistaActual('servicios')}

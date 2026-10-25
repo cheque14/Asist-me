@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 72" role="img" aria-labelledby="title desc">
+  <title id="title">Asist-me</title>
+  <desc id="desc">Marca de asistencia médica digital con un pulso dentro de una burbuja de conversación.</desc>
+  <path fill="#174F49" d="M8 29C8 15.745 18.745 5 32 5h17c13.255 0 24 10.745 24 24v7c0 13.255-10.745 24-24 24H35.5L22 68v-9.79C13.774 54.39 8 46.06 8 36v-7Z"/>
+  <path fill="none" stroke="#F7F9F7" stroke-linecap="round" stroke-linejoin="round" stroke-width="5" d="M20 37h9l5-10 8 20 6-14 4 4h10"/>
+  <circle cx="64" cy="17" r="5" fill="#E4B89F"/>
+  <text x="91" y="45" fill="#1D2927" font-family="'Plus Jakarta Sans', 'Inter', Arial, sans-serif" font-size="36" font-weight="700" letter-spacing="-1.5">Asist</text>
+  <text x="183" y="45" fill="#174F49" font-family="'Plus Jakarta Sans', 'Inter', Arial, sans-serif" font-size="36" font-weight="700" letter-spacing="-1.5">-me</text>
+</svg>

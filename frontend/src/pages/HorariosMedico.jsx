@@ -1,8 +1,10 @@
+// src/pages/HorariosMedico.jsx
 import React, { useEffect, useState } from 'react';
 import {
   guardarHorariosMedicoAPI,
   obtenerHorariosMedicoAPI,
 } from '../services/api';
+import Icon from '../components/Icon';
 
 const dias = [
   'Lunes',
@@ -33,27 +35,35 @@ export default function HorariosMedico({ usuario }) {
     const cargar = async () => {
       try {
         const resultado = await obtenerHorariosMedicoAPI(usuario.access_token);
-        setZonaHoraria(resultado.zona_horaria);
-        setHorarios(resultado.horarios.map((horario, index) => ({
-          ...horario,
-          hora_inicio: horario.hora_inicio.slice(0, 5),
-          hora_fin: horario.hora_fin.slice(0, 5),
-          key: `saved-${index}`,
-        })));
+        setZonaHoraria(resultado.zona_horaria || 'UTC');
+        setHorarios(
+          resultado.horarios.map((horario, index) => ({
+            ...horario,
+            hora_inicio: horario.hora_inicio.slice(0, 5),
+            hora_fin: horario.hora_fin.slice(0, 5),
+            key: `saved-${index}`,
+          }))
+        );
       } catch (err) {
-        setError(err.message || 'No se pudieron cargar los horarios.');
+        setError(err.message || 'No se pudieron cargar los horarios configurados.');
       } finally {
         setCargando(false);
       }
     };
 
-    cargar();
-  }, [usuario.access_token]);
+    if (usuario?.access_token) {
+      cargar();
+    } else {
+      setCargando(false);
+    }
+  }, [usuario?.access_token]);
 
   const actualizarBloque = (key, campo, valor) => {
-    setHorarios((actuales) => actuales.map((horario) => (
-      horario.key === key ? { ...horario, [campo]: valor } : horario
-    )));
+    setHorarios((actuales) =>
+      actuales.map((horario) =>
+        horario.key === key ? { ...horario, [campo]: valor } : horario
+      )
+    );
   };
 
   const agregarBloque = (dia) => {
@@ -79,7 +89,7 @@ export default function HorariosMedico({ usuario }) {
           hora_fin,
         })),
       });
-      setMensaje(resultado.mensaje);
+      setMensaje(resultado.mensaje || 'Horarios guardados correctamente.');
     } catch (err) {
       setError(err.message || 'No se pudo guardar el horario.');
     } finally {
@@ -88,135 +98,336 @@ export default function HorariosMedico({ usuario }) {
   };
 
   return (
-    <section style={styles.pagina}>
-      <header style={styles.encabezado}>
-        <h1 style={styles.titulo}>Mi horario de atención</h1>
-        <p style={styles.descripcion}>
-          Configura los días y bloques de atención. El asistente usará este horario y la duración del tipo de cita para mostrar espacios disponibles.
-        </p>
-      </header>
+    <div className="bento-dashboard" aria-label="Configuración de Horarios de Atención">
+      {/* Header */}
+      <section className="bento-hero">
+        <div>
+          <p className="eyebrow">DISPONIBILIDAD Y CONSULTA</p>
+          <h1>Horarios de Atención</h1>
+          <p className="subtitle">
+            Define tus días y bloques de atención. El asistente inteligente usará estos intervalos para ofrecer citas a tus pacientes.
+          </p>
+        </div>
 
-      {error && <div role="alert" style={styles.alertaError}>{error}</div>}
-      {mensaje && <div role="status" style={styles.alertaExito}>{mensaje}</div>}
+        <div className="hero-actions">
+          <button
+            type="button"
+            className="primary-btn"
+            disabled={guardando || cargando}
+            onClick={guardar}
+          >
+            <Icon name="clock" size={17} />
+            <span>{guardando ? 'Guardando...' : 'Guardar horarios'}</span>
+          </button>
+        </div>
+      </section>
+
+      {error && (
+        <div style={styles.alertaError}>
+          <span>{error}</span>
+        </div>
+      )}
+
+      {mensaje && (
+        <div style={styles.alertaExito}>
+          <span>{mensaje}</span>
+        </div>
+      )}
 
       {cargando ? (
-        <p>Cargando horario...</p>
+        <article className="card" style={{ padding: '36px', textAlign: 'center' }}>
+          <p style={{ color: '#7c8986' }}>Cargando disponibilidad médica...</p>
+        </article>
       ) : (
-        <form onSubmit={guardar}>
-          <div className="tarjeta-flotante" style={styles.tarjeta}>
-            <label htmlFor="zona-horaria" style={styles.etiqueta}>
-              ZONA HORARIA DE LA CONSULTA
-            </label>
-            <input
-              id="zona-horaria"
-              className="input-flotante"
-              value={zonaHoraria}
-              onChange={(evento) => setZonaHoraria(evento.target.value)}
-              placeholder="Ej. America/Mexico_City"
-              style={styles.zonaInput}
-              required
-            />
-            <small style={styles.ayuda}>
-              Usa una zona IANA, por ejemplo America/Mexico_City o America/Costa_Rica.
-            </small>
-          </div>
+        <form onSubmit={guardar} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Tarjeta de Zona Horaria */}
+          <article className="card" style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+              <span className="soft-icon sage">
+                <Icon name="clock" size={20} />
+              </span>
+              <div>
+                <strong style={{ fontSize: '15px', color: '#1d2927' }}>Zona Horaria del Consultorio</strong>
+                <span style={{ display: 'block', fontSize: '12px', color: '#7c8986' }}>
+                  Asegura que los pacientes vean los horarios en tu hora local.
+                </span>
+              </div>
+            </div>
 
-          <div style={styles.listaDias}>
+            <div style={{ maxWidth: '420px' }}>
+              <input
+                id="zona-horaria"
+                value={zonaHoraria}
+                onChange={(evento) => setZonaHoraria(evento.target.value)}
+                placeholder="Ej. America/Mexico_City o America/Bogota"
+                style={styles.zonaInput}
+                required
+              />
+              <small style={styles.ayuda}>
+                Formato estándar IANA (ejemplo: America/Mexico_City, America/Costa_Rica, America/Lima).
+              </small>
+            </div>
+          </article>
+
+          {/* Días y Bloques */}
+          <div style={styles.gridDias}>
             {dias.map((nombreDia, dia) => {
               const bloquesDia = horarios
                 .filter((horario) => horario.dia_semana === dia)
                 .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
 
+              const tieneBloques = bloquesDia.length > 0;
+
               return (
-                <div className="tarjeta-flotante" style={styles.tarjetaDia} key={nombreDia}>
+                <article
+                  key={nombreDia}
+                  className="card"
+                  style={{
+                    padding: '22px',
+                    backgroundColor: tieneBloques ? '#ffffff' : '#f9fbf9',
+                  }}
+                >
                   <div style={styles.cabeceraDia}>
-                    <h2 style={styles.nombreDia}>{nombreDia}</h2>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span
+                        className="avatar"
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          fontSize: '11px',
+                          backgroundColor: tieneBloques ? '#174f49' : '#e9eeeb',
+                          color: tieneBloques ? '#ffffff' : '#7c8986',
+                        }}
+                      >
+                        {nombreDia.substring(0, 2)}
+                      </span>
+                      <h3 style={styles.nombreDia}>{nombreDia}</h3>
+                      {tieneBloques && (
+                        <span className="mode" style={{ fontSize: '9px', padding: '4px 8px' }}>
+                          {bloquesDia.length} {bloquesDia.length === 1 ? 'bloque' : 'bloques'}
+                        </span>
+                      )}
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => agregarBloque(dia)}
-                      style={styles.botonAgregar}
+                      style={styles.btnAgregarBloque}
                     >
-                      + Agregar bloque
+                      <Icon name="plus" size={14} />
+                      <span>Agregar bloque</span>
                     </button>
                   </div>
-                  {bloquesDia.length === 0 ? (
-                    <p style={styles.sinBloques}>Sin horario de atención</p>
+
+                  {!tieneBloques ? (
+                    <div style={styles.sinBloques}>
+                      <span>No atiendes este día</span>
+                    </div>
                   ) : (
-                    <div style={styles.bloques}>
+                    <div style={styles.bloquesContainer}>
                       {bloquesDia.map((bloque) => (
-                        <div style={styles.filaBloque} key={bloque.key}>
-                          <label style={styles.campoHora}>
-                            <span>Desde</span>
-                            <input
-                              type="time"
-                              value={bloque.hora_inicio}
-                              onChange={(evento) => actualizarBloque(
-                                bloque.key,
-                                'hora_inicio',
-                                evento.target.value,
-                              )}
-                              required
-                            />
-                          </label>
-                          <label style={styles.campoHora}>
-                            <span>Hasta</span>
-                            <input
-                              type="time"
-                              value={bloque.hora_fin}
-                              onChange={(evento) => actualizarBloque(
-                                bloque.key,
-                                'hora_fin',
-                                evento.target.value,
-                              )}
-                              required
-                            />
-                          </label>
+                        <div style={styles.bloqueItem} key={bloque.key}>
+                          <div style={styles.timeInputPill}>
+                            <Icon name="clock" size={14} style={{ color: '#7c8986' }} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={styles.labelTime}>Desde</span>
+                              <input
+                                type="time"
+                                value={bloque.hora_inicio}
+                                onChange={(evento) =>
+                                  actualizarBloque(
+                                    bloque.key,
+                                    'hora_inicio',
+                                    evento.target.value
+                                  )
+                                }
+                                style={styles.inputTime}
+                                required
+                              />
+                            </div>
+                            <span style={{ color: '#c4d1cd' }}>→</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={styles.labelTime}>Hasta</span>
+                              <input
+                                type="time"
+                                value={bloque.hora_fin}
+                                onChange={(evento) =>
+                                  actualizarBloque(
+                                    bloque.key,
+                                    'hora_fin',
+                                    evento.target.value
+                                  )
+                                }
+                                style={styles.inputTime}
+                                required
+                              />
+                            </div>
+                          </div>
+
                           <button
                             type="button"
-                            aria-label={`Quitar bloque de ${nombreDia}`}
+                            aria-label={`Quitar bloque`}
                             onClick={() => quitarBloque(bloque.key)}
-                            style={styles.botonQuitar}
+                            style={styles.btnQuitar}
+                            title="Eliminar este bloque"
                           >
-                            Quitar
+                            ✕
                           </button>
                         </div>
                       ))}
                     </div>
                   )}
-                </div>
+                </article>
               );
             })}
           </div>
 
-          <button type="submit" disabled={guardando} style={styles.botonGuardar}>
-            {guardando ? 'Guardando...' : 'Guardar horario'}
-          </button>
+          <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              type="submit"
+              disabled={guardando}
+              className="primary-btn"
+            >
+              <Icon name="clock" size={17} />
+              <span>{guardando ? 'Guardando...' : 'Guardar horarios de atención'}</span>
+            </button>
+          </div>
         </form>
       )}
-    </section>
+    </div>
   );
 }
 
 const styles = {
-  pagina: { padding: '36px', flex: 1, backgroundColor: '#f1f5f9' },
-  encabezado: { marginBottom: '24px' },
-  titulo: { margin: 0, color: '#0f172a', fontSize: '26px' },
-  descripcion: { color: '#64748b', maxWidth: '760px', lineHeight: 1.6 },
-  tarjeta: { padding: '22px', marginBottom: '20px', maxWidth: '720px' },
-  etiqueta: { display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' },
-  zonaInput: { width: '100%', maxWidth: '400px', boxSizing: 'border-box' },
-  ayuda: { display: 'block', color: '#64748b', marginTop: '8px' },
-  listaDias: { display: 'grid', gap: '14px', maxWidth: '900px' },
-  tarjetaDia: { padding: '20px' },
-  cabeceraDia: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' },
-  nombreDia: { margin: 0, color: '#0f172a', fontSize: '18px' },
-  bloques: { display: 'grid', gap: '10px', marginTop: '14px' },
-  filaBloque: { display: 'flex', alignItems: 'end', gap: '12px', flexWrap: 'wrap' },
-  campoHora: { display: 'grid', gap: '6px', color: '#64748b', fontSize: '12px' },
-  sinBloques: { margin: '12px 0 0', color: '#94a3b8', fontSize: '14px' },
-  botonAgregar: { border: 0, background: 'transparent', color: '#0284c7', cursor: 'pointer', fontWeight: 600 },
-  botonQuitar: { border: 0, background: 'transparent', color: '#b91c1c', padding: '8px', cursor: 'pointer' },
-  botonGuardar: { marginTop: '20px', padding: '12px 20px', border: 0, borderRadius: '10px', background: '#0284c7', color: 'white', fontWeight: 600, cursor: 'pointer' },
-  alertaError: { color: '#b91c1c', background: '#fee2e2', padding: '12px', borderRadius: '10px', marginBottom: '16px' },
-  alertaExito: { color: '#166534', background: '#dcfce7', padding: '12px', borderRadius: '10px', marginBottom: '16px' },
+  alertaError: {
+    backgroundColor: '#fef2f2',
+    color: '#991b1b',
+    border: '1px solid #fecaca',
+    padding: '12px 18px',
+    borderRadius: '14px',
+    fontSize: '13px',
+    fontWeight: '500',
+    marginBottom: '20px',
+  },
+  alertaExito: {
+    backgroundColor: '#edf3ec',
+    color: '#174f49',
+    border: '1px solid #dfe9df',
+    padding: '12px 18px',
+    borderRadius: '14px',
+    fontSize: '13px',
+    fontWeight: '600',
+    marginBottom: '20px',
+  },
+  zonaInput: {
+    width: '100%',
+    padding: '11px 14px',
+    borderRadius: '12px',
+    border: '1px solid #e9eeeb',
+    fontSize: '13px',
+    color: '#1d2927',
+    outline: 'none',
+    boxSizing: 'border-box',
+    fontFamily: 'inherit',
+    backgroundColor: '#ffffff',
+  },
+  ayuda: {
+    display: 'block',
+    color: '#7c8986',
+    fontSize: '11px',
+    marginTop: '6px',
+  },
+  gridDias: {
+    display: 'grid',
+    gap: '16px',
+  },
+  cabeceraDia: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '12px',
+    flexWrap: 'wrap',
+  },
+  nombreDia: {
+    margin: 0,
+    color: '#1d2927',
+    fontSize: '16px',
+    fontWeight: '700',
+  },
+  btnAgregarBloque: {
+    border: '1px solid #e9eeeb',
+    background: '#ffffff',
+    color: '#174f49',
+    padding: '6px 12px',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    fontSize: '11px',
+    fontWeight: '700',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    transition: 'all 0.15s ease',
+    fontFamily: 'inherit',
+  },
+  sinBloques: {
+    marginTop: '12px',
+    padding: '12px',
+    backgroundColor: '#ffffff',
+    borderRadius: '12px',
+    border: '1px dashed #e9eeeb',
+    color: '#a3b0ac',
+    fontSize: '12px',
+    fontStyle: 'italic',
+  },
+  bloquesContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+    marginTop: '14px',
+  },
+  bloqueItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    flexWrap: 'wrap',
+  },
+  timeInputPill: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '8px 16px',
+    backgroundColor: '#f3f6f4',
+    borderRadius: '14px',
+    border: '1px solid #e9eeeb',
+  },
+  labelTime: {
+    fontSize: '11px',
+    color: '#7c8986',
+    fontWeight: '600',
+  },
+  inputTime: {
+    border: 'none',
+    backgroundColor: '#ffffff',
+    padding: '5px 8px',
+    borderRadius: '8px',
+    fontSize: '13px',
+    fontWeight: '600',
+    color: '#1d2927',
+    fontFamily: 'inherit',
+    outline: 'none',
+  },
+  btnQuitar: {
+    border: 'none',
+    background: '#fef2f2',
+    color: '#b91c1c',
+    width: '32px',
+    height: '32px',
+    borderRadius: '10px',
+    display: 'grid',
+    placeItems: 'center',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: '700',
+    transition: 'all 0.15s ease',
+  },
 };

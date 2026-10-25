@@ -10,6 +10,11 @@
 
 # production
 /build
+/frontend/build/
+/frontend/coverage/
+
+# Local recovery archives are not source code and may contain test credentials.
+/.local-archive/
 
 # misc
 .DS_Store

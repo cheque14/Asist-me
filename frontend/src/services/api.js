@@ -1,5 +1,5 @@
 // src/services/api.js
-const API_URL = "http://127.0.0.1:5000/api";
+const API_URL = "http://127.0.0.1:5001/api";
 
 export const loginAPI = async (identificador, password) => {
   const response = await fetch(`${API_URL}/auth/login`, {
@@ -34,6 +34,33 @@ export const obtenerSesionAPI = async (accessToken) => {
   return data.usuario;
 };
 
+export const actualizarPerfilAPI = async (accessToken, perfil) => {
+  const response = await fetch(`${API_URL}/auth/profile`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + accessToken,
+    },
+    body: JSON.stringify(perfil),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const error = new Error(data.error || "No se pudo actualizar el perfil");
+    error.usuario = data.usuario;
+    throw error;
+  }
+  return data;
+};
+
+// Médicos
+export const obtenerMedicosAPI = async () => {
+  const response = await fetch(`${API_URL}/medicos`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "No se pudieron cargar los médicos");
+  return data;
+};
+
+// Horarios y disponibilidad
 export const obtenerHorariosMedicoAPI = async (accessToken) => {
   const response = await fetch(`${API_URL}/medico/horarios`, {
     headers: { Authorization: "Bearer " + accessToken },
@@ -68,26 +95,179 @@ export const obtenerDisponibilidadMedicoAPI = async (medicoId, fecha, tipoCitaId
   return data;
 };
 
-// Funciones de chat, servicios y citas creadas previamente...
-export const enviarMensajeChat = async (usuarioId, mensaje) => {
+// Citas médicas (Conexión real Médico - Paciente)
+export const obtenerCitasAPI = async (accessToken) => {
+  const response = await fetch(`${API_URL}/citas`, {
+    headers: { Authorization: "Bearer " + accessToken },
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "No se pudieron cargar las citas");
+  return data;
+};
+
+export const agendarCitaAPI = async (accessToken, datosCita) => {
+  const response = await fetch(`${API_URL}/citas`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + accessToken,
+    },
+    body: JSON.stringify(datosCita),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "No se pudo agendar la cita");
+  return data;
+};
+
+export const cancelarCitaAPI = async (accessToken, citaId) => {
+  const response = await fetch(`${API_URL}/citas/${citaId}/cancelar`, {
+    method: "PUT",
+    headers: { Authorization: "Bearer " + accessToken },
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "No se pudo cancelar la cita");
+  return data;
+};
+
+export const actualizarEstadoCitaAPI = async (accessToken, citaId, estado) => {
+  const response = await fetch(`${API_URL}/citas/${citaId}/estado`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + accessToken,
+    },
+    body: JSON.stringify({ estado }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "No se pudo actualizar el estado");
+  return data;
+};
+
+export const solicitarCambioCitaAPI = async (accessToken, citaId, datosCambio) => {
+  const response = await fetch(`${API_URL}/citas/${citaId}/solicitudes-cambio`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + accessToken,
+    },
+    body: JSON.stringify(datosCambio),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "No se pudo solicitar el cambio");
+  return data;
+};
+
+export const proponerCambioCitaAPI = async (accessToken, citaId, datosCambio) => {
+  const response = await fetch(`${API_URL}/citas/${citaId}/propuestas-cambio`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
+    body: JSON.stringify(datosCambio),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "No se pudo proponer el cambio");
+  return data;
+};
+
+export const resolverPropuestaCitaAPI = async (accessToken, solicitudId, accion, fechaHora) => {
+  const response = await fetch(`${API_URL}/citas/propuestas-cambio/${solicitudId}/resolver`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
+    body: JSON.stringify({ accion, ...(fechaHora && typeof fechaHora === 'object' ? fechaHora : { fecha_hora: fechaHora }) }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "No se pudo responder la propuesta");
+  return data;
+};
+
+export const obtenerNotificacionesAPI = async (accessToken) => {
+  const response = await fetch(`${API_URL}/notificaciones`, {
+    headers: { Authorization: "Bearer " + accessToken },
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "No se pudieron cargar las notificaciones");
+  return data;
+};
+
+export const obtenerConteoNotificacionesNoLeidasAPI = async (accessToken) => {
+  const response = await fetch(`${API_URL}/notificaciones/no-leidas/count`, {
+    headers: { Authorization: "Bearer " + accessToken },
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "No se pudo consultar el estado de las notificaciones");
+  return data.count || 0;
+};
+
+export const marcarNotificacionLeidaAPI = async (accessToken, notificationId) => {
+  const response = await fetch(`${API_URL}/notificaciones/${notificationId}/leer`, {
+    method: "PUT",
+    headers: { Authorization: "Bearer " + accessToken },
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "No se pudo actualizar la notificación");
+  return data;
+};
+
+export const obtenerSolicitudesCambioAPI = async (accessToken) => {
+  const response = await fetch(`${API_URL}/citas/solicitudes-cambio`, {
+    headers: { Authorization: "Bearer " + accessToken },
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "No se pudieron cargar las solicitudes");
+  return data;
+};
+
+export const resolverSolicitudCambioAPI = async (accessToken, solicitudId, aceptar) => {
+  const response = await fetch(`${API_URL}/citas/solicitudes-cambio/${solicitudId}/resolver`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + accessToken,
+    },
+    body: JSON.stringify({ aceptar }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "No se pudo resolver la solicitud");
+  return data;
+};
+
+// Servicios médicos
+export const obtenerServiciosAPI = async () => {
+  const response = await fetch(`${API_URL}/servicios`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "No se pudieron cargar los servicios");
+  return data;
+};
+
+export const crearServicioAPI = async (accessToken, datosServicio) => {
+  const response = await fetch(`${API_URL}/servicios`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + accessToken,
+    },
+    body: JSON.stringify(datosServicio),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "No se pudo crear el servicio");
+  return data;
+};
+
+// Chatbot con persistencia
+export const enviarMensajeChat = async (accessToken, mensaje) => {
   const response = await fetch(`${API_URL}/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ usuario_id: usuarioId, mensaje }),
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
+    body: JSON.stringify({ mensaje }),
   });
-  return await response.json();
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'No se pudo enviar el mensaje.');
+  return data;
 };
 
 export const obtenerEspecialidadesAPI = async () => {
-  try {
-    const response = await fetch(`${API_URL}/especialidades`);
-    if (!response.ok) {
-      throw new Error(`Error HTTP: ${response.status}`);
-    }
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error al obtener especialidades de la API:", error);
-    throw error;
+  const response = await fetch(`${API_URL}/especialidades`);
+  if (!response.ok) {
+    throw new Error(`Error HTTP: ${response.status}`);
   }
+  return await response.json();
 };

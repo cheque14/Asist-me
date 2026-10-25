@@ -1,6 +1,7 @@
 // src/pages/registerRol.jsx
 import React, { useState, useEffect } from 'react';
 import { registerAPI, obtenerEspecialidadesAPI } from '../services/api';
+import Icon from '../components/Icon';
 
 export default function RegisterRol({ alRegistroExitoso, alVolver }) {
   const [rolSeleccionado, setRolSeleccionado] = useState(null); // 'paciente' o 'medico'
@@ -8,6 +9,7 @@ export default function RegisterRol({ alRegistroExitoso, alVolver }) {
   const [apellidos, setApellidos] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
+  const [telefono, setTelefono] = useState('');
   const [password, setPassword] = useState('');
   const [licenciaMedica, setLicenciaMedica] = useState('');
   const [especialidadId, setEspecialidadId] = useState('');
@@ -17,7 +19,7 @@ export default function RegisterRol({ alRegistroExitoso, alVolver }) {
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
 
-  // Efecto: Cargar especialidades directamente desde Supabase
+  // Cargar especialidades para médicos
   useEffect(() => {
     if (rolSeleccionado === 'medico') {
       const fetchEspecialidades = async () => {
@@ -26,12 +28,12 @@ export default function RegisterRol({ alRegistroExitoso, alVolver }) {
           const data = await obtenerEspecialidadesAPI();
           if (Array.isArray(data) && data.length > 0) {
             setListaEspecialidades(data);
-            setEspecialidadId(data[0].id); // Asigna la primera especialidad de Supabase por defecto
+            setEspecialidadId(data[0].id);
           } else {
-            setError("No se encontraron especialidades en la base de datos.");
+            setError('No se encontraron especialidades disponibles.');
           }
         } catch (err) {
-          setError("No se pudo conectar con Supabase para obtener las especialidades.");
+          setError('No se pudo conectar con el catálogo de especialidades.');
         } finally {
           setCargandoEspecialidades(false);
         }
@@ -43,13 +45,16 @@ export default function RegisterRol({ alRegistroExitoso, alVolver }) {
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     if (!nombres.trim() || !apellidos.trim() || !username.trim() || !email || !password) {
-      return setError('Llena todos los campos obligatorios');
+      return setError('Completa todos los campos obligatorios.');
     }
-    if (!/^[a-zA-Z0-9._-]{3,30}$/.test(username)) {
-      return setError('El usuario debe tener de 3 a 30 caracteres: letras, números, punto, guion o guion bajo.');
+    if (password.length < 6) {
+      return setError('La contraseña debe tener al menos 6 caracteres.');
+    }
+    if (!/^[a-zA-Z0-9._-]{3,30}$/.test(username.trim())) {
+      return setError('El usuario debe tener de 3 a 30 caracteres válidos.');
     }
     if (rolSeleccionado === 'medico' && !especialidadId) {
-      return setError('Debes seleccionar una especialidad médica');
+      return setError('Debes seleccionar una especialidad médica.');
     }
 
     setCargando(true);
@@ -61,23 +66,26 @@ export default function RegisterRol({ alRegistroExitoso, alVolver }) {
         nombres: nombres.trim(),
         apellidos: apellidos.trim(),
         username: username.trim().toLowerCase(),
-        email,
+        email: email.trim(),
+        telefono: rolSeleccionado === 'paciente' ? telefono.trim() : '',
         password,
         rol: rolSeleccionado,
-        licencia_medica: licenciaMedica,
-        especialidad_id: Number(especialidadId)
+        licencia_medica: licenciaMedica.trim(),
+        especialidad_id: Number(especialidadId),
       };
 
       const res = await registerAPI(payload);
       if (res.access_token) {
         alRegistroExitoso(res.usuario, res.access_token);
       } else {
-        setMensaje(res.requiere_confirmacion
-          ? 'Revisa tu correo para confirmar la cuenta antes de iniciar sesión.'
-          : res.mensaje);
+        setMensaje(
+          res.requiere_confirmacion
+            ? 'Revisa tu correo para confirmar la cuenta antes de iniciar sesión.'
+            : res.mensaje || 'Registro completado con éxito.'
+        );
       }
     } catch (err) {
-      setError(err.message || 'Error al completar el registro');
+      setError(err.message || 'Error al completar el registro.');
     } finally {
       setCargando(false);
     }
@@ -85,130 +93,171 @@ export default function RegisterRol({ alRegistroExitoso, alVolver }) {
 
   return (
     <div style={styles.contenedor}>
-      <div className="tarjeta-flotante" style={styles.tarjeta}>
-        <button style={styles.btnVolver} onClick={rolSeleccionado ? () => setRolSeleccionado(null) : alVolver}>
-          ← {rolSeleccionado ? 'Cambiar tipo de cuenta' : 'Volver al login'}
-        </button>
+      <div className="card" style={styles.tarjeta}>
+        <div style={styles.topBar}>
+          <button
+            type="button"
+            style={styles.btnVolver}
+            onClick={rolSeleccionado ? () => setRolSeleccionado(null) : alVolver}
+          >
+            ← {rolSeleccionado ? 'Cambiar perfil' : 'Volver al login'}
+          </button>
 
-        <div style={styles.logoContenedor}>🩺</div>
-        <h2 style={{ textAlign: 'center', margin: '0 0 6px 0', color: '#0f172a', fontWeight: '700' }}>
-          {rolSeleccionado ? `Registro de ${rolSeleccionado === 'medico' ? 'Médico' : 'Paciente'}` : 'Crear cuenta en Asist-me'}
-        </h2>
-        <p style={{ textAlign: 'center', color: '#64748b', fontSize: '14px', margin: '0 0 24px 0' }}>
-          {rolSeleccionado ? 'Ingresa tus datos personales para continuar' : 'Selecciona el tipo de cuenta que deseas crear'}
-        </p>
+          <div style={styles.brandBadge}>
+            <img className="register-brand-logo" src="/asist-me-logo.svg" alt="Asist-me" />
+          </div>
+        </div>
 
-        {error && <div style={styles.mensajeError}>⚠️ {error}</div>}
+        <div style={styles.encabezado}>
+          <p className="eyebrow" style={{ textAlign: 'center', marginBottom: '6px' }}>
+            REGISTRO DE USUARIO
+          </p>
+          <h2 style={styles.titulo}>
+            {rolSeleccionado
+              ? `Registro de ${rolSeleccionado === 'medico' ? 'Médico' : 'Paciente'}`
+              : 'Selecciona tu tipo de cuenta'}
+          </h2>
+          <p style={styles.subtitulo}>
+            {rolSeleccionado
+              ? 'Ingresa tus datos personales para activar tu portal.'
+              : '¿Cómo vas a utilizar la plataforma AsisTme?'}
+          </p>
+        </div>
+
+        {error && <div style={styles.mensajeError}>{error}</div>}
         {mensaje && <div style={styles.mensajeExito}>{mensaje}</div>}
 
         {!rolSeleccionado ? (
-          <>
-            <div className="tarjeta-flotante" style={styles.opcion} onClick={() => setRolSeleccionado('paciente')}>
-              <div style={styles.iconoOpcion}>👤</div>
+          <div style={styles.opcionesGrid}>
+            <div
+              className="card"
+              style={styles.cardOpcion}
+              onClick={() => setRolSeleccionado('paciente')}
+            >
+              <span className="soft-icon blue">
+                <Icon name="users" size={22} />
+              </span>
               <div>
-                <h4 style={{ margin: '0 0 4px 0', color: '#0f172a', fontWeight: '600' }}>Paciente</h4>
-                <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
-                  Agenda citas con especialistas, consulta tu historial clínico y recibe atención.
+                <strong style={styles.opcionTitulo}>Soy Paciente</strong>
+                <p style={styles.opcionDesc}>
+                  Agenda citas, revisa tu historial clínico y mantén contacto directo con tus médicos.
                 </p>
               </div>
+              <Icon name="arrow" size={16} className="opcionArrow" />
             </div>
 
-            <div className="tarjeta-flotante" style={styles.opcion} onClick={() => setRolSeleccionado('medico')}>
-              <div style={{ ...styles.iconoOpcion, backgroundColor: '#e0e7ff', color: '#4338ca' }}>🩺</div>
+            <div
+              className="card"
+              style={styles.cardOpcion}
+              onClick={() => setRolSeleccionado('medico')}
+            >
+              <span className="soft-icon sage">
+                <Icon name="calendar" size={22} />
+              </span>
               <div>
-                <h4 style={{ margin: '0 0 4px 0', color: '#0f172a', fontWeight: '600' }}>Médico / Especialista</h4>
-                <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
-                  Gestiona expedientes, administra tus servicios, precios y horarios de atención.
+                <strong style={styles.opcionTitulo}>Soy Médico</strong>
+                <p style={styles.opcionDesc}>
+                  Gestiona tu agenda de consultas, expedientes electrónicos y horarios de atención.
                 </p>
               </div>
+              <Icon name="arrow" size={16} className="opcionArrow" />
             </div>
-          </>
+          </div>
         ) : (
-          <form onSubmit={handleRegisterSubmit}>
-            <div style={{ marginBottom: '14px' }}>
-              <label style={styles.label}>NOMBRES</label>
-              <input
-                type="text"
-                className="input-flotante"
-                placeholder="Ej. Fernando José"
-                value={nombres}
-                onChange={(e) => setNombres(e.target.value)}
-                style={styles.inputFull}
-                required
-              />
+          <form onSubmit={handleRegisterSubmit} style={styles.formulario}>
+            <div style={styles.filaDoble}>
+              <div style={styles.campo}>
+                <label style={styles.label}>NOMBRES</label>
+                <input
+                  type="text"
+                  placeholder="Ej. Ana"
+                  value={nombres}
+                  onChange={(e) => setNombres(e.target.value)}
+                  style={styles.input}
+                  required
+                />
+              </div>
+              <div style={styles.campo}>
+                <label style={styles.label}>APELLIDOS</label>
+                <input
+                  type="text"
+                  placeholder="Ej. García"
+                  value={apellidos}
+                  onChange={(e) => setApellidos(e.target.value)}
+                  style={styles.input}
+                  required
+                />
+              </div>
             </div>
 
-            <div style={{ marginBottom: '14px' }}>
-              <label style={styles.label}>APELLIDOS</label>
-              <input
-                type="text"
-                className="input-flotante"
-                placeholder="Ej. García López"
-                value={apellidos}
-                onChange={(e) => setApellidos(e.target.value)}
-                style={styles.inputFull}
-                required
-              />
-            </div>
-
-            <div style={{ marginBottom: '14px' }}>
+            <div style={styles.campo}>
               <label style={styles.label}>NOMBRE DE USUARIO</label>
               <input
                 type="text"
-                className="input-flotante"
-                placeholder="Ej. fernando.garcia"
+                placeholder="anagarcia"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                style={styles.inputFull}
+                style={styles.input}
                 minLength={3}
                 maxLength={30}
-                pattern="[a-zA-Z0-9._-]{3,30}"
-                autoComplete="username"
                 required
               />
-              <small style={{ color: '#64748b' }}>También podrás iniciar sesión con tu correo.</small>
             </div>
 
-            <div style={{ marginBottom: '14px' }}>
+            <div style={styles.campo}>
               <label style={styles.label}>CORREO ELECTRÓNICO</label>
               <input
                 type="email"
-                className="input-flotante"
-                placeholder="tu@email.com"
+                placeholder="ana@asistme.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                style={styles.inputFull}
+                style={styles.input}
                 required
               />
             </div>
 
-            <div style={{ marginBottom: '14px' }}>
+            {rolSeleccionado === 'paciente' && (
+              <div style={styles.campo}>
+                <label style={styles.label} htmlFor="registro-telefono">TELÉFONO</label>
+                <input
+                  id="registro-telefono"
+                  type="tel"
+                  autoComplete="tel"
+                  inputMode="tel"
+                  placeholder="Ej. +52 55 1234 5678"
+                  value={telefono}
+                  onChange={(e) => setTelefono(e.target.value)}
+                  style={styles.input}
+                  required
+                />
+              </div>
+            )}
+
+            <div style={styles.campo}>
               <label style={styles.label}>CONTRASEÑA</label>
               <input
                 type="password"
-                className="input-flotante"
-                placeholder="********"
+                placeholder="Mínimo 6 caracteres"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                style={styles.inputFull}
+                style={styles.input}
                 required
               />
             </div>
 
             {rolSeleccionado === 'medico' && (
               <>
-                <div style={{ marginBottom: '14px' }}>
-                  <label style={styles.label}>ESPECIALIDAD MÉDICA (DESDE SUPABASE)</label>
+                <div style={styles.campo}>
+                  <label style={styles.label}>ESPECIALIDAD MÉDICA</label>
                   {cargandoEspecialidades ? (
-                    <div style={{ fontSize: '13px', color: '#0284c7', padding: '10px 0' }}>
-                      Cargando catálogo desde Supabase...
+                    <div style={{ fontSize: '12px', color: '#174f49', padding: '8px 0' }}>
+                      Cargando catálogo de especialidades...
                     </div>
                   ) : (
                     <select
-                      className="input-flotante"
                       value={especialidadId}
                       onChange={(e) => setEspecialidadId(e.target.value)}
-                      style={styles.inputFull}
+                      style={styles.select}
                       required
                     >
                       {listaEspecialidades.map((esp) => (
@@ -220,23 +269,27 @@ export default function RegisterRol({ alRegistroExitoso, alVolver }) {
                   )}
                 </div>
 
-                <div style={{ marginBottom: '20px' }}>
+                <div style={styles.campo}>
                   <label style={styles.label}>LICENCIA / CÉDULA MÉDICA</label>
                   <input
                     type="text"
-                    className="input-flotante"
-                    placeholder="Ej. MED-123456"
+                    placeholder="Ej. MED-987452"
                     value={licenciaMedica}
                     onChange={(e) => setLicenciaMedica(e.target.value)}
-                    style={styles.inputFull}
+                    style={styles.input}
                     required
                   />
                 </div>
               </>
             )}
 
-            <button type="submit" disabled={cargando || cargandoEspecialidades} style={styles.btnSubmit}>
-              {cargando ? 'Creando cuenta...' : 'Completar Registro'}
+            <button
+              type="submit"
+              disabled={cargando || cargandoEspecialidades}
+              className="primary-btn"
+              style={styles.btnSubmit}
+            >
+              {cargando ? 'Registrando cuenta...' : 'Completar Registro'}
             </button>
           </form>
         )}
@@ -246,15 +299,163 @@ export default function RegisterRol({ alRegistroExitoso, alVolver }) {
 }
 
 const styles = {
-  contenedor: { minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#f1f5f9' },
-  tarjeta: { padding: '40px', width: '100%', maxWidth: '440px' },
-  btnVolver: { background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', marginBottom: '20px', fontWeight: '500', fontSize: '13px' },
-  logoContenedor: { width: '64px', height: '64px', backgroundColor: '#0284c7', color: '#fff', borderRadius: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '32px', margin: '0 auto 20px auto', boxShadow: '0 8px 16px -4px rgba(2, 132, 199, 0.4)' },
-  opcion: { display: 'flex', alignItems: 'center', gap: '16px', padding: '18px', cursor: 'pointer', marginBottom: '16px' },
-  iconoOpcion: { fontSize: '22px', backgroundColor: '#e0f2fe', color: '#0369a1', padding: '12px', borderRadius: '14px' },
-  label: { display: 'block', fontSize: '11px', fontWeight: '700', color: '#475569', marginBottom: '6px' },
-  inputFull: { width: '100%', boxSizing: 'border-box' },
-  btnSubmit: { width: '100%', backgroundColor: '#0284c7', color: '#ffffff', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: '600', fontSize: '15px', cursor: 'pointer', boxShadow: '0 8px 20px -4px rgba(2, 132, 199, 0.4)' },
-  mensajeError: { backgroundColor: '#fee2e2', color: '#b91c1c', padding: '10px', borderRadius: '10px', fontSize: '13px', marginBottom: '16px', textAlign: 'center' },
-  mensajeExito: { backgroundColor: '#dcfce7', color: '#166534', padding: '10px', borderRadius: '10px', fontSize: '13px', marginBottom: '16px', textAlign: 'center' }
+  contenedor: {
+    minHeight: '100vh',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: '24px',
+    background: 'radial-gradient(circle at 78% 8%, #edf3ef 0, transparent 28%), #f7f9f7',
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
+    boxSizing: 'border-box',
+  },
+  tarjeta: {
+    width: '100%',
+    maxWidth: '520px',
+    padding: '36px 32px',
+    borderRadius: '24px',
+    backgroundColor: '#ffffff',
+    boxShadow: '0 24px 60px rgba(40, 65, 59, 0.08)',
+    border: '1px solid #e9eeeb',
+  },
+  topBar: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '20px',
+  },
+  btnVolver: {
+    background: 'none',
+    border: 'none',
+    color: '#7c8986',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: '600',
+    padding: 0,
+    fontFamily: 'inherit',
+  },
+  brandBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  encabezado: {
+    marginBottom: '24px',
+    textAlign: 'center',
+  },
+  titulo: {
+    fontSize: '24px',
+    fontWeight: '700',
+    color: '#1d2927',
+    margin: '0 0 6px 0',
+    letterSpacing: '-0.6px',
+  },
+  subtitulo: {
+    fontSize: '13px',
+    color: '#7c8986',
+    margin: 0,
+  },
+  opcionesGrid: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '14px',
+  },
+  cardOpcion: {
+    display: 'grid',
+    gridTemplateColumns: 'auto 1fr auto',
+    alignItems: 'center',
+    gap: '16px',
+    padding: '20px',
+    borderRadius: '18px',
+    border: '1px solid #e9eeeb',
+    cursor: 'pointer',
+    transition: 'transform 0.15s ease, border-color 0.15s ease',
+  },
+  opcionTitulo: {
+    display: 'block',
+    fontSize: '15px',
+    color: '#1d2927',
+    marginBottom: '3px',
+  },
+  opcionDesc: {
+    fontSize: '12px',
+    color: '#7c8986',
+    margin: 0,
+    lineHeight: '1.4',
+  },
+  formulario: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '14px',
+  },
+  filaDoble: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '12px',
+  },
+  campo: {
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  label: {
+    fontSize: '10px',
+    fontWeight: '700',
+    color: '#7c8986',
+    marginBottom: '6px',
+    letterSpacing: '0.8px',
+  },
+  input: {
+    backgroundColor: '#ffffff',
+    border: '1px solid #e9eeeb',
+    borderRadius: '12px',
+    padding: '11px 14px',
+    fontSize: '13px',
+    color: '#1d2927',
+    outline: 'none',
+    fontFamily: 'inherit',
+    boxSizing: 'border-box',
+    width: '100%',
+  },
+  select: {
+    backgroundColor: '#ffffff',
+    border: '1px solid #e9eeeb',
+    borderRadius: '12px',
+    padding: '11px 14px',
+    fontSize: '13px',
+    color: '#1d2927',
+    outline: 'none',
+    fontFamily: 'inherit',
+    boxSizing: 'border-box',
+    width: '100%',
+    cursor: 'pointer',
+  },
+  btnSubmit: {
+    width: '100%',
+    height: '46px',
+    justifyContent: 'center',
+    marginTop: '10px',
+    fontSize: '14px',
+  },
+  mensajeError: {
+    backgroundColor: '#fef2f2',
+    color: '#991b1b',
+    border: '1px solid #fecaca',
+    padding: '12px 14px',
+    borderRadius: '14px',
+    fontSize: '12px',
+    marginBottom: '16px',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  mensajeExito: {
+    backgroundColor: '#edf3ec',
+    color: '#174f49',
+    border: '1px solid #dfe9df',
+    padding: '12px 14px',
+    borderRadius: '14px',
+    fontSize: '12px',
+    marginBottom: '16px',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
 };

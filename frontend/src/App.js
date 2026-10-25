@@ -7,13 +7,19 @@ import PacienteMain from './pages/PacienteMain';
 import MedicoMain from './pages/MedicoMain';
 import Servicios from './pages/Servicios';
 import HistorialClinico from './pages/HistorialClinico';
+import ExpedienteClinico from './pages/ExpedienteClinico';
 import ChatBot from './components/ChatBot';
 import HorariosMedico from './pages/HorariosMedico';
+import CalendarioCitas from './pages/CalendarioCitas';
+import Notificaciones from './pages/Notificaciones';
+import PerfilUsuario from './pages/PerfilUsuario';
+import LandingPage from './pages/LandingPage';
 
 export default function App() {
   const [usuario, setUsuario] = useState(null); // Estado del usuario autenticado
-  const [pantallaAuth, setPantallaAuth] = useState('login'); // 'login' o 'registro'
-  const [vistaActual, setVistaActual] = useState('panel'); // 'panel', 'servicios', 'historial', 'citas'
+  const [pantallaAuth, setPantallaAuth] = useState('landing');
+  const [vistaActual, setVistaActual] = useState('panel'); // 'panel', 'servicios', 'historial', 'citas', 'horarios'
+  const [abrirAgendar, setAbrirAgendar] = useState(false);
 
   // Manejo de Inicio de Sesión o Registro exitoso
   const handleAuthExitoso = (datosUsuario, accessToken) => {
@@ -24,15 +30,26 @@ export default function App() {
   // Cerrar sesión
   const handleCerrarSesion = () => {
     setUsuario(null);
-    setPantallaAuth('login');
+    setPantallaAuth('landing');
+    setVistaActual('panel');
+    setAbrirAgendar(false);
   };
 
   // 1. Si no hay usuario autenticado, renderizar vistas de autenticación
   if (!usuario) {
+    if (pantallaAuth === 'landing') {
+      return (
+        <LandingPage
+          alIrALogin={() => setPantallaAuth('login')}
+          alIrARegistro={() => setPantallaAuth('registro')}
+        />
+      );
+    }
     return pantallaAuth === 'login' ? (
       <Login
         alIniciarSesionExitoso={handleAuthExitoso}
         irARegistroRol={() => setPantallaAuth('registro')}
+        alVolverALanding={() => setPantallaAuth('landing')}
       />
     ) : (
       <RegisterRol
@@ -44,26 +61,54 @@ export default function App() {
 
   const esMedico = usuario.rol === 'medico';
 
-  // 2. Si el usuario está autenticado, renderizar el Layout con el Sidebar
+  // 2. Si el usuario está autenticado, renderizar el Layout con el Sidebar y el Bento Dashboard
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f1f5f9' }}>
+    <div className="app-shell">
       <Sidebar
         vistaActual={vistaActual}
         setVistaActual={setVistaActual}
         usuario={usuario}
+        onCerrarSesion={handleCerrarSesion}
       />
 
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-        {/* Renderizado dinámico de secciones */}
-        {vistaActual === 'panel' && (esMedico ? <MedicoMain /> : <PacienteMain />)}
-        {vistaActual === 'servicios' && <Servicios esMedico={esMedico} />}
-        {vistaActual === 'historial' && <HistorialClinico />}
-        {vistaActual === 'citas' && <PacienteMain />}
+      <main className="app-main">
+        {/* Renderizado dinámico de secciones con props completas */}
+        {vistaActual === 'panel' && (
+          esMedico ? (
+            <MedicoMain usuario={usuario} setVistaActual={setVistaActual} />
+          ) : (
+            <PacienteMain
+              usuario={usuario}
+              setVistaActual={setVistaActual}
+              abrirAgendar={abrirAgendar}
+              onAgendarAbierto={() => setAbrirAgendar(false)}
+            />
+          )
+        )}
+        {vistaActual === 'servicios' && <Servicios esMedico={esMedico} usuario={usuario} />}
+        {vistaActual === 'historial' && <HistorialClinico usuario={usuario} />}
+        {vistaActual === 'expediente' && <ExpedienteClinico usuario={usuario} />}
+        {vistaActual === 'citas' && (
+          <CalendarioCitas
+            usuario={usuario}
+            setVistaActual={setVistaActual}
+            onNuevaCita={() => {
+              if (esMedico) {
+                setVistaActual('horarios');
+              } else {
+                setAbrirAgendar(true);
+                setVistaActual('panel');
+              }
+            }}
+          />
+        )}
+        {vistaActual === 'notificaciones' && <Notificaciones usuario={usuario} setVistaActual={setVistaActual} />}
+        {vistaActual === 'perfil' && <PerfilUsuario usuario={usuario} onProfileUpdated={(updated) => setUsuario((current) => ({ ...current, ...updated }))} onCerrarSesion={handleCerrarSesion} />}
         {vistaActual === 'horarios' && esMedico && <HorariosMedico usuario={usuario} />}
       </main>
 
-      {/* Asistente Flotante con IA */}
-      <ChatBot usuarioId={usuario.id} />
+      {/* Asistente Flotante con IA (disponible en cualquier vista) */}
+      <ChatBot accessToken={usuario.access_token} />
     </div>
   );
 }

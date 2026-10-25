@@ -1,171 +1,93 @@
-// src/components/Sidebar.jsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import Icon from './Icon';
+import { obtenerConteoNotificacionesNoLeidasAPI, obtenerCitasAPI } from '../services/api';
+import { requiresResponse } from '../utils/appointmentState';
 
-export default function Sidebar({ vistaActual, setVistaActual, usuario }) {
+export default function Sidebar({ vistaActual, setVistaActual, usuario, onCerrarSesion }) {
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
   const esMedico = usuario?.rol === 'medico';
+  const nombre = usuario?.nombre || usuario?.email || 'Usuario';
+  const initials = nombre.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+
+  useEffect(() => {
+    let active = true;
+    if (!usuario?.access_token) return undefined;
+    let sequence = 0;
+    const refreshCount = async () => {
+      const current = ++sequence;
+      const [unread, appointments] = await Promise.allSettled([
+        obtenerConteoNotificacionesNoLeidasAPI(usuario.access_token), obtenerCitasAPI(usuario.access_token),
+      ]);
+      if (!active || sequence !== current) return;
+      if (unread.status === 'fulfilled') setUnreadCount(unread.value);
+      if (appointments.status === 'fulfilled') setPendingCount(appointments.value.filter((cita) => requiresResponse(cita, usuario.rol)).length);
+    };
+    refreshCount();
+    const timer = window.setInterval(refreshCount, 30000);
+    window.addEventListener('asis:notifications-updated', refreshCount);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener('asis:notifications-updated', refreshCount);
+    };
+  }, [usuario?.access_token, usuario?.rol]);
+
+  const links = [
+    { id: 'panel', label: 'Inicio' },
+    { id: 'citas', label: 'Agenda' },
+    { id: 'historial', label: 'Historial de citas' },
+    { id: 'expediente', label: 'Expediente clínico' },
+  ];
 
   return (
-    <aside style={styles.sidebar}>
-      <div>
-        {/* Encabezado del Logo */}
-        <div style={styles.logoContenedor}>
-          <div style={styles.iconoLogo}>🩺</div>
-          <div>
-            <h2 style={styles.logoTitulo}>Asist-me</h2>
-            <span style={styles.logoSubtitulo}>Gestión Médica</span>
+    <header className="app-topbar">
+      <button className="app-brand" type="button" onClick={() => setVistaActual('panel')} aria-label="Ir al inicio">
+        <img className="app-brand-logo" src="/asist-me-logo.svg" alt="" />
+      </button>
+
+      <nav className="app-primary-nav" aria-label="Navegación principal">
+        {links.map((link) => (
+          <button
+            key={link.id}
+            type="button"
+            className={`app-nav-link ${vistaActual === link.id ? 'active' : ''}`}
+            aria-current={vistaActual === link.id ? 'page' : undefined}
+            onClick={() => setVistaActual(link.id)}
+          >
+            {link.label}
+          </button>
+        ))}
+        <details className="app-more-menu">
+          <summary className={['servicios', 'horarios'].includes(vistaActual) ? 'active' : ''}>Más</summary>
+          <div className="app-more-popover">
+            {esMedico && <button type="button" onClick={() => setVistaActual('horarios')}>Mis horarios</button>}
+            <button type="button" onClick={() => setVistaActual('servicios')}>Servicios</button>
+            {onCerrarSesion && <button type="button" onClick={onCerrarSesion}>Cerrar sesión</button>}
           </div>
-        </div>
+        </details>
+      </nav>
 
-        {/* Menú de Navegación */}
-        <nav style={styles.nav}>
-          <button 
-            style={vistaActual === 'panel' ? styles.btnActivo : styles.btnNav} 
-            onClick={() => setVistaActual('panel')}
-          >
-            <span style={styles.iconoMenu}>📊</span> 
-            {esMedico ? 'Panel Médico' : 'Inicio'}
-          </button>
-
-          <button 
-            style={vistaActual === 'historial' ? styles.btnActivo : styles.btnNav} 
-            onClick={() => setVistaActual('historial')}
-          >
-            <span style={styles.iconoMenu}>📋</span> 
-            Historial Clínico
-          </button>
-
-          <button 
-            style={vistaActual === 'citas' ? styles.btnActivo : styles.btnNav} 
-            onClick={() => setVistaActual('citas')}
-          >
-            <span style={styles.iconoMenu}>📅</span> 
-            Calendario y Citas
-          </button>
-
-          {esMedico && (
-            <button
-              style={vistaActual === 'horarios' ? styles.btnActivo : styles.btnNav}
-              onClick={() => setVistaActual('horarios')}
-            >
-              <span style={styles.iconoMenu}>🕒</span>
-              Mi horario
-            </button>
-          )}
-
-          <button 
-            style={vistaActual === 'servicios' ? styles.btnActivo : styles.btnNav} 
-            onClick={() => setVistaActual('servicios')}
-          >
-            <span style={styles.iconoMenu}>🩺</span> 
-            Servicios
-          </button>
-        </nav>
-      </div>
-
-      {/* Pie del Perfil */}
-      <div style={styles.perfilFooter}>
-        <div style={{ fontSize: '15px', fontWeight: '600', color: '#f8fafc' }}>
-          {usuario?.nombre || 'Usuario'}
-        </div>
-        <div style={{ fontSize: '13px', color: '#94a3b8', marginTop: '2px' }}>
-          {usuario?.rol || 'Paciente'}
-        </div>
-        <button 
-          style={styles.btnConfig} 
-          onClick={() => setVistaActual('configuracion')}
+      <div className="app-topbar-actions">
+        <button
+          className={`app-icon-button ${vistaActual === 'notificaciones' ? 'active' : ''}`}
+          type="button"
+          aria-label={`Notificaciones, ${unreadCount} sin leer, ${pendingCount} requieren respuesta`}
+          onClick={() => setVistaActual('notificaciones')}
         >
-          ⚙️ Configuración
+          <Icon name="bell" size={21} />
+          {unreadCount > 0 && <span className="app-notification-indicator" aria-hidden="true" />}
+        </button>
+        {pendingCount > 0 && <button className="app-nav-link" onClick={() => setVistaActual('notificaciones')}>{pendingCount} por responder</button>}
+        <button
+          className="app-profile-button"
+          type="button"
+          aria-label={`Ver perfil de ${nombre}`}
+          onClick={() => setVistaActual('perfil')}
+        >
+          <span className="app-profile-avatar">{initials || 'US'}</span>
         </button>
       </div>
-    </aside>
+    </header>
   );
 }
-
-const styles = {
-  sidebar: {
-    width: '220px', // Ancho reducido para mejor proporción
-    backgroundColor: '#0f172a',
-    color: '#ffffff',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-    padding: '24px 16px',
-    minHeight: '100vh',
-    boxSizing: 'border-box',
-    flexShrink: 0
-  },
-  logoContenedor: { 
-    display: 'flex', 
-    alignItems: 'center', 
-    gap: '12px', 
-    marginBottom: '32px' 
-  },
-  iconoLogo: { 
-    backgroundColor: '#0284c7', 
-    padding: '8px', 
-    borderRadius: '12px', 
-    fontSize: '22px',
-    boxShadow: '0 4px 10px rgba(2, 132, 199, 0.4)'
-  },
-  logoTitulo: { 
-    fontSize: '20px', 
-    fontWeight: '700', 
-    margin: 0, 
-    color: '#f8fafc' 
-  },
-  logoSubtitulo: { 
-    fontSize: '12px', 
-    color: '#94a3b8' 
-  },
-  nav: { 
-    display: 'flex', 
-    flexDirection: 'column', 
-    gap: '6px' 
-  },
-  btnNav: {
-    display: 'flex', 
-    alignItems: 'center', 
-    gap: '12px', 
-    padding: '12px 14px',
-    backgroundColor: 'transparent', 
-    color: '#94a3b8', 
-    border: 'none',
-    borderRadius: '10px', 
-    cursor: 'pointer', 
-    textAlign: 'left', 
-    fontSize: '15px', // Texto más grande y legible
-    fontWeight: '500',
-    transition: 'all 0.2s ease'
-  },
-  btnActivo: {
-    display: 'flex', 
-    alignItems: 'center', 
-    gap: '12px', 
-    padding: '12px 14px',
-    backgroundColor: '#1e293b', 
-    color: '#38bdf8', 
-    border: 'none',
-    borderRadius: '10px', 
-    cursor: 'pointer', 
-    textAlign: 'left', 
-    fontSize: '15px', // Texto más grande y legible
-    fontWeight: '600'
-  },
-  iconoMenu: { 
-    fontSize: '18px' 
-  },
-  perfilFooter: { 
-    borderTop: '1px solid #1e293b', 
-    paddingTop: '16px' 
-  },
-  btnConfig: { 
-    background: 'none', 
-    border: 'none', 
-    color: '#94a3b8', 
-    cursor: 'pointer', 
-    marginTop: '10px', 
-    padding: 0,
-    fontSize: '13px',
-    fontWeight: '500'
-  }
-};

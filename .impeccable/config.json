@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "plus jakarta sans",
+        "createdAt": "2026-10-25T00:54:19.711Z",
+        "reason": "user confirmed: existing Asist-me design system intentionally uses Plus Jakarta Sans"
+      }
+    ]
+  }
+}
